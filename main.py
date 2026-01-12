@@ -17,13 +17,9 @@ def script(file, start, end):
         pixels = {}
         locs = {}
         for row in reader:
-            strip = row[0][:13]
-            time = datetime.strptime(strip, "%Y-%m-%d %H")
+            strip = row[0][:16]
+            time = datetime.strptime(strip, "%Y-%m-%d %H:%M")
 
-            if time < start:
-                continue
-            if time > end:
-                continue
             if start <= time < end:
                 if row[2] not in pixels:
                     pixels[row[2]] = 0
