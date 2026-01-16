@@ -1,98 +1,73 @@
-#"C:\Users\rdlou\Downloads\2022_place_canvas_history.csv"
-
 import csv
-import operator
+import sys
 import time
 from datetime import datetime
 
-path = r"C:\Users\rdlou\Downloads\2022_place_canvas_history.csv"
+
+def parse_hour(s: str) -> datetime:
+    return datetime.strptime(s, "%Y-%m-%d %H")
 
 
-def script(file, start, end):
-    with open(file, "r", encoding="utf-8") as f:
-        if end <= start:
-            raise ValueError("start time must be less than end time")
+def analyze(file_path: str, start: datetime, end: datetime):
+    if end <= start:
+        raise ValueError("End hour must be after start hour.")
+
+    color_counts = {}
+    loc_counts = {}
+
+    with open(file_path, "r", encoding="utf-8", newline="") as f:
         reader = csv.reader(f)
         header = next(reader)
-        pixels = {}
-        locs = {}
+        try:
+            ts_i = header.index("timestamp")
+            color_i = header.index("pixel_color")
+            loc_i = header.index("coordinate")
+        except ValueError:
+            ts_i, color_i, loc_i = 0, 2, 3
+
         for row in reader:
-            strip = row[0][:16]
-            time = datetime.strptime(strip, "%Y-%m-%d %H:%M")
+            ts_str = row[ts_i][:16]
+            row_time = datetime.strptime(ts_str, "%Y-%m-%d %H:%M")
 
-            if start <= time < end:
-                if row[2] not in pixels:
-                    pixels[row[2]] = 0
-                pixels[row[2]] += 1
-                if row[3] not in locs:
-                    locs[row[3]] = 0
-                locs[row[3]] += 1
+            if start <= row_time < end:
+                color = row[color_i]
+                loc = row[loc_i]
 
-        if not pixels or not locs:
-            return None, None
+                color_counts[color] = color_counts.get(color, 0) + 1
+                loc_counts[loc] = loc_counts.get(loc, 0) + 1
 
-        most_placed_color = max(pixels, key=pixels.get)
-        most_placed_loc = max(locs, key=locs.get)
-        x_str, y_str = most_placed_loc.split(",")
-        most_placed_coord = (int(x_str), int(y_str))
-        return most_placed_color, most_placed_coord
+    if not color_counts or not loc_counts:
+        return None, None
 
+    most_color = max(color_counts, key=color_counts.get)
+    most_loc = max(loc_counts, key=loc_counts.get)
 
+    x_str, y_str = most_loc.split(",")
+    most_coord = (int(x_str), int(y_str))
 
-
-start_time = datetime.strptime("2022-04-01 12", "%Y-%m-%d %H")
-end_time1 = datetime.strptime("2022-04-01 13", "%Y-%m-%d %H")
-end_time2 = datetime.strptime("2022-04-01 15", "%Y-%m-%d %H")
-end_time3 = datetime.strptime("2022-04-01 18", "%Y-%m-%d %H")
-
-t0 = time.perf_counter_ns()
-color, coord = script(path, start_time, end_time1)
-t1 = time.perf_counter_ns()
-
-elapsed_ms = (t1 - t0) / 1_000_000
-print("Timeframe:", start_time, "to", end_time1)
-print(f"Execution time: {elapsed_ms:.2f} ms")
-print("Most placed color:", color)
-print("Most placed pixel location:", coord)
-
-t02 = time.perf_counter_ns()
-color2, coord2 = script(path, start_time, end_time2)
-t12 = time.perf_counter_ns()
-
-elapsed_ms = (t12 - t02) / 1_000_000
-print("Timeframe:", start_time, "to", end_time2)
-print(f"Execution time: {elapsed_ms:.2f} ms")
-print("Most placed color:", color2)
-print("Most placed pixel location:", coord2)
+    return most_color, most_coord
 
 
-t03 = time.perf_counter_ns()
-color3, coord3 = script(path, start_time, end_time2)
-t13 = time.perf_counter_ns()
-
-elapsed_ms = (t13 - t03) / 1_000_000
-print("Timeframe:", start_time, "to", end_time3)
-print(f"Execution time: {elapsed_ms:.2f} ms")
-print("Most placed color:", color3)
-print("Most placed pixel location:", coord3)
+def run_and_time(file_path: str, start: datetime, end: datetime):
+    t0 = time.perf_counter_ns()
+    color, coord = analyze(file_path, start, end)
+    t1 = time.perf_counter_ns()
+    elapsed_ms = (t1 - t0) / 1_000_000
+    return elapsed_ms, color, coord
 
 
-'''
-You will write a Python script that accepts a starting and ending hour as arguments and returns:
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        raise SystemExit(
+            'Usage: python week1.py "YYYY-MM-DD HH" "YYYY-MM-DD HH" <csv_path>'
+        )
 
-The most placed color during that timeframe.
-The most placed pixel location during that timeframe.
-Requirements
-External Libraries: You are not allowed to use any external packages (nothing requiring pip install).
+    start = parse_hour(sys.argv[1])
+    end = parse_hour(sys.argv[2])
+    path = sys.argv[3]
 
-Input Format:
-
-The script should accept start and end hours as command-line arguments in the following format:
-YYYY-MM-DD HH (e.g., 2022-04-01 12 for April 1, 2022, at 12:00 PM).
-Ensure your script validates that the end hour is after the start hour.
-Color Format:
-The colors in the dataset are stored as hexadecimal codes (e.g., #FFFFFF for white). You should return the most placed color in this format.
-
-Timing the Script:
-Use Python's time.perf_counter_ns() or equivalent to measure execution time.
-'''
+    ms, color, coord = run_and_time(path, start, end)
+    print(f"Timeframe: {start} to {end}")
+    print(f"Execution time: {ms:.2f} ms")
+    print(f"Most placed color: {color}")
+    print(f"Most placed pixel location: {coord}")
