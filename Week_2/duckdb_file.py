@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 import sys
 
-path = r"C:\Users\rdlou\Downloads\2022_place_canvas_history.csv"
+path = r"2022_place_canvas_history.csv"
 
 con = duckdb.connect()
 

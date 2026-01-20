@@ -3,7 +3,7 @@ import time
 import sys
 from datetime import datetime, timezone
 
-path = r"C:\Users\rdlou\Downloads\2022_place_canvas_history.csv"
+path = r"2022_place_canvas_history.csv"
 
 
 
