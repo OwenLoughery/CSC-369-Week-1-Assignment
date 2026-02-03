@@ -4,27 +4,55 @@
 
 #### Human description:
 
-Certain regions of the canvas experienced extreme pixel churn, with some individual pixels being repainted over 90,000 times. This level of sustained, repetitive activity far exceeds normal human interaction patterns and suggests the use of automated tools or scripts to defend territory.
+Certain regions of the canvas experienced extreme pixel placement in a specific pixel, with some individual pixels being repainted over 90,000 times. This level of sustained, repetitive activity far exceeds normal human interaction patterns and suggests the use of automated tools or scripts to defend some type of territory.
 
 Evidence found that the irregular activity could exist:
 
-- Heatmap of pixel churn
+- Table of top pixels
 
-- Table of pixels with >20,000 edits
+|   x |   y |   edits |
+|----:|----:|--------:|
+|   0 |   0 |   98807 |
+| 359 | 564 |   69198 |
+| 349 | 564 |   55230 |
+| 859 | 766 |   52261 |
+| 860 | 766 |   51485 |
 
-- Top users contributing hundreds of edits to the same tiny set of pixels
+- Table contains pixels with >50,000 edits
+
+- Top users contributing hundreds of edits to the same tiny set of pixels (table evidence):
+
+|     user_id |   edits_on_hot_pixels |
+|------------:|----------------------:|
+| 5.93665e+18 |                   653 |
+| 1.99475e+17 |                   570 |
+| 1.10989e+19 |                   554 |
+| 1.60994e+18 |                   534 |
+| 1.3479e+19  |                   533 |
 
 #### Time Between Placement Exploration Evidence:
 
-The inter-placement timing distribution for users heavily involved in high-churn pixels shows a sharp spike at a consistent interval, corresponding closely to the platform’s cooldown period. Unlike the broad, irregular timing expected from human interaction, this pattern suggests scripted or tool-assisted placement synchronized with the cooldown timer.
+The time between placement distribution for users heavily involved in heavily contested pixels shows a sharp spike at a consistent interval, corresponding closely to the platform’s cooldown period. Unlike the broad, irregular timing expected from human interaction, this pattern suggests scripted or tool-assisted placement synchronized with the cooldown timer.
+
+![Time Between Placements for Contested-Pixel Users](images/time_between_placements.png)
 
 #### Session Length Exploration Evidence
 
-Session analysis shows many of the users responsible for the highest-churn pixels remained continuously active for sessions lasting 10–25 hours without breaks longer than 30 minutes. Such sustained activity is inconsistent with typical human usage patterns and suggests automated or tool-assisted behavior.
+This graph shows many of the users responsible for the highest placed pixels remained continuously active for sessions lasting 10–25 hours without breaks longer than 30 minutes. This type of sustained activity is inconsistent with normal human usage patterns and suggests automated or tool-assisted behavior as people live lives still and need sleep. Comparing this to a baseline graph of the session length for all r/place users it is clear the session lengths are much higher for the users in the top contestested pixel areas than general users.
+
+**Session lengths for heavily contested-pixel users:**
+
+![Session Lengths for Contested-Pixel Users](images/session_lengths_top_users.png)
+
+**Session lengths across all r/place users:**
+
+![Session Lengths for All Users](images/session_lengths_overall.png)
 
 #### Spatial Concentration Exploration Evidence
 
-Analysis of edit concentration shows that while many users placed pixels across a wide range of locations, a subset of high-churn users directed a majority of their activity toward a very small set of heavily contested pixels. In several cases, more than half and sometimes nearly all of a user’s placements occurred in these high-churn regions. This level of spatial focus is inconsistent with typical human participation patterns and suggests automated or tool-assisted territorial defense behavior.
+Looking at edit concentration shows that while many users placed pixels across a wide range of locations, a subset of the users in the high pixel placement areas directed a majority of their activity toward a very small set of heavily contested pixels. In several cases, more than half and sometimes nearly all of a user’s placements occurred in these high placement area regions. This level of spatial focus is inconsistent with typical human participation patterns and suggests automated or tool-assisted territorial defense behavior trying to maintain a specific art work or control of a contested area.
+
+![Fraction of Edits in Hot Pixels](images/hot_edit_ratio.png)
 
 #### Conclusion
 
@@ -35,9 +63,9 @@ extreme pixel churn, cooldown-synchronized timing, unusually long continuous act
 all form a consistent profile of automated or tool-assisted territorial defense rather than typical human participation.
 
 
-## Bucket Name 2  
+## Bucket 2  
 
-### Low-Entropy Color Usage / Task-Specialized Automation
+### Low Color Diversity / Task-Specialized Automation
 
 #### Human description:
 
@@ -60,6 +88,10 @@ Further analysis of dominant color usage reveals that many of these accounts pla
 #### Spatial Pattern Exploration Evidence
 
 Visual inspection of the most extreme low-entropy users shows highly localized placement patterns. Each account concentrated its activity in small clusters or narrow boundary regions rather than contributing broadly across the canvas. Some users appear to maintain straight edges or repeatedly correct the same limited set of pixels. This spatial behavior aligns with automated maintenance roles rather than creative human participation.
+
+![Pixel Placement Patterns of Top Low Color Diversity Users](images/low_entropy_user_patterns.png)
+
+*Figure: Spatial placement patterns for the five most extreme low color-diversity users. Each panel shows that activity is concentrated in small, highly localized regions rather than spread across broader artwork, consistent with task-focused automated or tool-assisted maintenance behavior.*
 
 #### Conclusion
 
