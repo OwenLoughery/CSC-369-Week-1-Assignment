@@ -11,10 +11,9 @@ con = duckdb.connect()
 
 
 
-
 #######################
 #######################
-# BUCKET TWO
+# BUCKET ONE
 #######################
 #######################
 
@@ -286,7 +285,7 @@ color_counts = con.execute("""
 """).df()
 
 
-#print(color_counts.head(20))
+print(color_counts.head(10))
 
 
 
