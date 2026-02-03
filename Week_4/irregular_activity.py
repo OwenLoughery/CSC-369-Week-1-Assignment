@@ -1,19 +1,349 @@
 import duckdb
-import time
-from datetime import datetime
-import sys
 import pandas as pd
 from plotnine import *
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
-from tabulate import tabulate
 
 
 
 con = duckdb.connect()
 
-'''
+
+
+
+#######################
+#######################
+# BUCKET TWO
+#######################
+#######################
+
+####################################################################################
+# PIXEL CHURN SECTION EXPLORING IF POSSIBLE IRREGULAR ACTIVITY AREA
+####################################################################################
+
+
+
+pixel_churn = con.execute("""
+    SELECT x, y, COUNT(*) AS edits
+    FROM parquet_scan('place_preprocessed.parquet')
+    GROUP BY x, y
+""").df()
+
+print(pixel_churn.head(5).to_markdown(index=False))
+
+
+(
+    ggplot(pixel_churn, aes(x="x", y="y", fill="edits"))
+    + geom_tile()
+    + scale_fill_cmap(name="Edits (Churn)")
+    + coord_fixed()
+    + labs(title="Heavily Contested Pixels Heatmap — Total Edits per Pixel",
+           x="X Coordinate", y="Y Coordinate")
+    + theme_minimal()
+).show()
+
+high_churn = con.execute("""
+    SELECT x, y, COUNT(*) AS edits
+    FROM parquet_scan('place_preprocessed.parquet')
+    GROUP BY x, y
+    HAVING COUNT(*) > 50
+    ORDER BY edits DESC
+""").df()
+
+print(high_churn.head(5).to_markdown(index=False))
+
+top_pixels = con.execute("""
+    SELECT x, y
+    FROM parquet_scan('place_preprocessed.parquet')
+    GROUP BY x, y
+    HAVING COUNT(*) > 100
+""").df()
+
+con.register("top_pixels", top_pixels)
+
+churn_users = con.execute("""
+    SELECT p.user_id, COUNT(*) AS edits_on_hot_pixels
+    FROM parquet_scan('place_preprocessed.parquet') p
+    JOIN top_pixels t
+      ON p.x = t.x AND p.y = t.y
+    GROUP BY p.user_id
+    ORDER BY edits_on_hot_pixels DESC
+""").df()
+
+print(churn_users.head(5).to_markdown(index=False))
+
+
+
+
+####################################################################################
+# TIME BETWEEN PLACEMENT SECTION
+####################################################################################
+
+
+
+con.execute("""
+CREATE OR REPLACE TEMP TABLE top_churn_users AS
+SELECT user_id
+FROM churn_users
+LIMIT 50
+""")
+
+timing = con.execute("""
+    SELECT
+        user_id,
+        ts,
+        ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) AS delta
+    FROM parquet_scan('place_preprocessed.parquet')
+    WHERE user_id IN (SELECT user_id FROM top_churn_users)
+""").df()
+
+timing["delta_seconds"] = timing["delta"].dt.total_seconds()
+
+(
+    ggplot(timing.dropna(), aes(x="delta_seconds"))
+    + geom_histogram(bins=100)
+    + scale_x_log10()
+    + labs(title="Time Between Placement for \n Heavily Contested Pixels Area Users",
+           x="Seconds Between Placements",
+           y="Count")
+    + theme_minimal()
+).show()
+
+
+####################################################################################
+# SESSION OF ACTIVITY TIME COMPARISON SECTION
+####################################################################################
+
+
+sessions = con.execute("""
+    WITH deltas AS (
+      SELECT
+        user_id,
+        ts,
+        ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) AS delta
+      FROM parquet_scan('place_preprocessed.parquet')
+      WHERE user_id IN (SELECT user_id FROM top_churn_users)
+    ),
+    session_flags AS (
+      SELECT *,
+             CASE WHEN delta IS NULL OR delta > INTERVAL 30 MINUTE THEN 1 ELSE 0 END AS new_session
+      FROM deltas
+    ),
+    session_ids AS (
+      SELECT *,
+             SUM(new_session) OVER (PARTITION BY user_id ORDER BY ts) AS session_id
+      FROM session_flags
+    )
+    SELECT
+      user_id,
+      session_id,
+      MIN(ts) AS start_ts,
+      MAX(ts) AS end_ts,
+      DATE_DIFF('minute', MIN(ts), MAX(ts)) AS session_length_min
+    FROM session_ids
+    GROUP BY user_id, session_id
+""").df()
+
+(
+    ggplot(sessions, aes(x="session_length_min"))
+    + geom_histogram(bins=50)
+    + scale_x_log10()
+    + labs(title="Continuous Activity Session Lengths for \n Top Contested Pixels Area Users",
+           x="Session Length (minutes)",
+           y="Count")
+    + theme_minimal()
+).show()
+
+
+sessions_overall = con.execute("""
+    WITH deltas AS (
+      SELECT
+        user_id,
+        ts,
+        ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) AS delta
+      FROM parquet_scan('place_preprocessed.parquet')
+    ),
+    session_flags AS (
+      SELECT *,
+             CASE WHEN delta IS NULL OR delta > INTERVAL 30 MINUTE THEN 1 ELSE 0 END AS new_session
+      FROM deltas
+    ),
+    session_ids AS (
+      SELECT *,
+             SUM(new_session) OVER (PARTITION BY user_id ORDER BY ts) AS session_id
+      FROM session_flags
+    )
+    SELECT
+      user_id,
+      session_id,
+      MIN(ts) AS start_ts,
+      MAX(ts) AS end_ts,
+      DATE_DIFF('minute', MIN(ts), MAX(ts)) AS session_length_min
+    FROM session_ids
+    GROUP BY user_id, session_id
+""").df()
+
+(
+    ggplot(sessions_overall, aes(x="session_length_min"))
+    + geom_histogram(bins=50)
+    + scale_x_log10()
+    + labs(title="Continuous Activity Session Lengths from r/place",
+           x="Session Length (minutes)",
+           y="Count")
+    + theme_minimal()
+).show()
+
+
+####################################################################################
+# FRACTION OF EDITS IN HIGH CHURN PIXELS
+####################################################################################
+
+
+
+con.execute("""
+CREATE OR REPLACE TEMP TABLE hot_pixels AS
+SELECT x, y
+FROM parquet_scan('place_preprocessed.parquet')
+GROUP BY x, y
+HAVING COUNT(*) > 1000
+""")
+
+focus = con.execute("""
+    WITH user_totals AS (
+      SELECT user_id, COUNT(*) AS total_edits
+      FROM parquet_scan('place_preprocessed.parquet')
+      WHERE user_id IN (SELECT user_id FROM top_churn_users)
+      GROUP BY user_id
+    ),
+    user_hot AS (
+      SELECT p.user_id, COUNT(*) AS hot_edits
+      FROM parquet_scan('place_preprocessed.parquet') p
+      JOIN hot_pixels h ON p.x=h.x AND p.y=h.y
+      WHERE p.user_id IN (SELECT user_id FROM top_churn_users)
+      GROUP BY p.user_id
+    )
+    SELECT
+      t.user_id,
+      total_edits,
+      COALESCE(hot_edits,0) AS hot_edits,
+      COALESCE(hot_edits,0) * 1.0 / total_edits AS hot_edit_ratio
+    FROM user_totals t
+    LEFT JOIN user_hot h USING(user_id)
+    ORDER BY hot_edit_ratio DESC
+""").df()
+
+(
+    ggplot(focus, aes(x="hot_edit_ratio"))
+    + geom_histogram(bins=30)
+    + labs(title="Fraction of Edits in Top Contested Pixels",
+           x="Proportion of User's Edits in Hot Pixels",
+           y="Number of Users")
+    + theme_minimal()
+).show()
+
+
+
+
+#######################
+#######################
+# BUCKET TWO
+#######################
+#######################
+
+####################################################################################
+# LOW AMOUNT OF COLOR CHOICE SECTION EXPLORING IF POSSIBLE IRREGULAR ACTIVITY AREA
+####################################################################################
+
+
+
+color_counts = con.execute("""
+    WITH color_count AS (
+        SELECT
+            user_id,
+            COUNT(DISTINCT pc) AS total_colors,
+            COUNT(*) AS total_edits
+        FROM parquet_scan('place_preprocessed.parquet')
+        GROUP BY user_id
+    ),
+    low_entropy AS (
+        SELECT 
+            c.user_id,
+            c.total_colors,
+            c.total_edits,
+            (c.total_colors * 1.0) / NULLIF(c.total_edits, 0) AS color_diversity_ratio
+        FROM color_count c
+        WHERE c.total_edits > 200
+          AND c.total_colors <= 2
+    )
+    SELECT 
+        user_id,
+        total_colors,
+        total_edits,
+        color_diversity_ratio
+    FROM low_entropy
+    ORDER BY color_diversity_ratio ASC, total_edits DESC
+""").df()
+
+
+#print(color_counts.head(20))
+
+
+
+con.register("low_entropy_users", color_counts)
+
+low_entropy_pixels = con.execute("""
+SELECT x, y
+FROM parquet_scan('place_preprocessed.parquet')
+WHERE user_id IN (SELECT user_id FROM low_entropy_users)
+""").df()
+
+(
+    ggplot(low_entropy_pixels, aes(x="x", y="y"))
+    + geom_bin2d(bins=120)
+    + coord_fixed()
+    + labs(title="Pixel Locations from Low Color Diversity Users",
+           x="X Coordinate",
+           y="Y Coordinate")
+    + theme_minimal()
+).show()
+
+top_5_users = color_counts.head(5)
+top5_ids = top_5_users["user_id"].tolist()
+
+con.register("top_5_users", top_5_users)
+
+user_pixels = con.execute(
+    """
+    SELECT user_id, x, y
+    FROM parquet_scan('place_preprocessed.parquet')
+    WHERE user_id IN (SELECT user_id FROM top_5_users)
+    """
+).df()
+
+(
+    ggplot(user_pixels, aes(x="x", y="y"))
+    + geom_bin2d(bins=80)
+    + coord_fixed()
+    + facet_wrap("~user_id")
+    + labs(title="Pixel Placement Patterns of Top 5 Low Color Diversity Users")
+    + theme_minimal()
+).show()
+
+print(color_counts.head(5).to_markdown(index=False))
+
+
+
+#######################
+#######################
+# BUCKET THREE
+#######################
+#######################
+
+####################################################################################
+# MASS FIRST TIME USER SPIKE SECTION EXPLORING IF POSSIBLE IRREGULAR ACTIVITY AREA
+####################################################################################
+
 
 df = con.execute("""
     SELECT DATE_TRUNC('minute', ts) AS minute,
@@ -31,7 +361,7 @@ g = (
            y="Placements per Minute")
     + theme_minimal()
 )
-#g.show()
+g.show()
 
 df_top_counts = con.execute("""
     SELECT DATE_TRUNC('minute', ts) AS minute,
@@ -40,7 +370,7 @@ df_top_counts = con.execute("""
     GROUP BY minute
     ORDER BY placements DESC
 """).df()
-#print(df_top_counts.head(10))
+print(df_top_counts.head(10))
 
 
 
@@ -82,7 +412,7 @@ g_window_03 = (
            y="Placements per Minute")
     + theme_minimal()
 )
-#g_window_03.show()
+g_window_03.show()
 
 
 coords = (con.execute("""
@@ -102,7 +432,7 @@ g_coord = (
            y="Y Coordinate")
     + theme_minimal()
 )
-#g_coord.show()
+g_coord.show()
 
 user_placement = (con.execute("""
     SELECT DATE_TRUNC('minute', ts) AS minute,
@@ -112,7 +442,7 @@ user_placement = (con.execute("""
     ORDER BY active_users DESC
 """).df())
 
-#print(user_placement.head())
+print(user_placement.head())
 
 first_users = con.execute("""
     SELECT COUNT(*) AS first_time_users
@@ -141,7 +471,21 @@ avg_first_users = con.execute("""
 print(first_users)
 print(avg_first_users)
 
-print("z-score =" + f"{(first_users["first_time_users"][0] - avg_first_users["mean_first_users_per_minute"][0]) / avg_first_users["std_first_users_per_min"][0]}")
+spike_count = first_users["first_time_users"][0]
+mean_count = avg_first_users["mean_first_users_per_minute"][0]
+std_count = avg_first_users["std_first_users_per_min"][0]
+
+z_score = (spike_count - mean_count) / std_count
+
+spike_summary = pd.DataFrame({
+    "Spike Minute": ["2022-04-03 21:00"],
+    "First-Time Users in Spike": [spike_count],
+    "Average First-Time Users per Minute": [mean_count],
+    "Std Dev per Minute": [std_count],
+    "Z-Score of Spike": [z_score]
+})
+
+print(spike_summary.to_markdown(index=False))
 
 spike_minute = "2022-04-03 21:00:00"
 
@@ -199,7 +543,7 @@ print(summary)
            x="Lifespan (minutes)",
            y="Number of Users")
     + theme_minimal()
-)#.show()
+).show()
 
 short_users = lifespans[lifespans["lifespan_minutes"] <= 5]["user_id"]
 long_users  = lifespans[lifespans["lifespan_minutes"] >= 1000]["user_id"]
@@ -233,333 +577,6 @@ long_df = con.execute(f"""
            x="X", y="Y")
     + theme_minimal()
 ).show()
-
-'''
-
-#######################
-#######################
-# BUCKET TWO
-#######################
-#######################
-
-####################################################################################
-# PIXEL CHURN SECTION EXPLORING IF POSSIBLE IRREGULAR ACTIVITY AREA
-####################################################################################
-
-
-'''
-
-pixel_churn = con.execute("""
-    SELECT x, y, COUNT(*) AS edits
-    FROM parquet_scan('place_preprocessed.parquet')
-    GROUP BY x, y
-""").df()
-
-#print(pixel_churn.head())
-
-
-(
-    ggplot(pixel_churn, aes(x="x", y="y", fill="edits"))
-    + geom_tile()
-    + scale_fill_cmap(name="Edits (Churn)")
-    + coord_fixed()
-    + labs(title="Pixel Churn Heatmap — Total Edits per Pixel",
-           x="X Coordinate", y="Y Coordinate")
-    + theme_minimal()
-)#.show()
-
-high_churn = con.execute("""
-    SELECT x, y, COUNT(*) AS edits
-    FROM parquet_scan('place_preprocessed.parquet')
-    GROUP BY x, y
-    HAVING COUNT(*) > 50
-    ORDER BY edits DESC
-""").df()
-
-#print(high_churn.head(20))
-
-top_pixels = con.execute("""
-    SELECT x, y
-    FROM parquet_scan('place_preprocessed.parquet')
-    GROUP BY x, y
-    HAVING COUNT(*) > 100
-""").df()
-
-con.register("top_pixels", top_pixels)
-
-churn_users = con.execute("""
-    SELECT p.user_id, COUNT(*) AS edits_on_hot_pixels
-    FROM parquet_scan('place_preprocessed.parquet') p
-    JOIN top_pixels t
-      ON p.x = t.x AND p.y = t.y
-    GROUP BY p.user_id
-    ORDER BY edits_on_hot_pixels DESC
-""").df()
-
-#print(churn_users.head(20))
-
-'''
-
-
-####################################################################################
-# TIME BETWEEN PLACEMENT SECTION
-####################################################################################
-
-
-'''
-con.execute("""
-CREATE OR REPLACE TEMP TABLE top_churn_users AS
-SELECT user_id
-FROM churn_users
-LIMIT 50
-""")
-
-timing = con.execute("""
-SELECT
-    user_id,
-    ts,
-    ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) AS delta
-FROM parquet_scan('place_preprocessed.parquet')
-WHERE user_id IN (SELECT user_id FROM top_churn_users)
-""").df()
-
-timing["delta_seconds"] = timing["delta"].dt.total_seconds()
-
-(
-    ggplot(timing.dropna(), aes(x="delta_seconds"))
-    + geom_histogram(bins=100)
-    + scale_x_log10()
-    + labs(title="Inter-Placement Time for Top Contested Area Users",
-           x="Seconds Between Placements",
-           y="Count")
-    + theme_minimal()
-).show()
-'''
-
-####################################################################################
-# SESSION OF ACTIVITY TIME COMPARISON SECTION
-####################################################################################
-
-'''
-sessions = con.execute("""
-WITH deltas AS (
-  SELECT
-    user_id,
-    ts,
-    ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) AS delta
-  FROM parquet_scan('place_preprocessed.parquet')
-  WHERE user_id IN (SELECT user_id FROM top_churn_users)
-),
-session_flags AS (
-  SELECT *,
-         CASE WHEN delta IS NULL OR delta > INTERVAL 30 MINUTE THEN 1 ELSE 0 END AS new_session
-  FROM deltas
-),
-session_ids AS (
-  SELECT *,
-         SUM(new_session) OVER (PARTITION BY user_id ORDER BY ts) AS session_id
-  FROM session_flags
-)
-SELECT
-  user_id,
-  session_id,
-  MIN(ts) AS start_ts,
-  MAX(ts) AS end_ts,
-  DATE_DIFF('minute', MIN(ts), MAX(ts)) AS session_length_min
-FROM session_ids
-GROUP BY user_id, session_id
-""").df()
-
-(
-    ggplot(sessions, aes(x="session_length_min"))
-    + geom_histogram(bins=50)
-    + scale_x_log10()
-    + labs(title="Continuous Activity Session Lengths for \n Top Contested Area Users",
-           x="Session Length (minutes)",
-           y="Count")
-    + theme_minimal()
-)#.show()
-
-
-sessions_overall = con.execute("""
-WITH deltas AS (
-  SELECT
-    user_id,
-    ts,
-    ts - LAG(ts) OVER (PARTITION BY user_id ORDER BY ts) AS delta
-  FROM parquet_scan('place_preprocessed.parquet')
-),
-session_flags AS (
-  SELECT *,
-         CASE WHEN delta IS NULL OR delta > INTERVAL 30 MINUTE THEN 1 ELSE 0 END AS new_session
-  FROM deltas
-),
-session_ids AS (
-  SELECT *,
-         SUM(new_session) OVER (PARTITION BY user_id ORDER BY ts) AS session_id
-  FROM session_flags
-)
-SELECT
-  user_id,
-  session_id,
-  MIN(ts) AS start_ts,
-  MAX(ts) AS end_ts,
-  DATE_DIFF('minute', MIN(ts), MAX(ts)) AS session_length_min
-FROM session_ids
-GROUP BY user_id, session_id
-""").df()
-
-(
-    ggplot(sessions_overall, aes(x="session_length_min"))
-    + geom_histogram(bins=50)
-    + scale_x_log10()
-    + labs(title="Continuous Activity Session Lengths from r/place",
-           x="Session Length (minutes)",
-           y="Count")
-    + theme_minimal()
-)#.show()
-'''
-
-####################################################################################
-# FRACTION OF EDITS IN HIGH CHURN PIXELS
-####################################################################################
-
-'''
-
-con.execute("""
-CREATE OR REPLACE TEMP TABLE hot_pixels AS
-SELECT x, y
-FROM parquet_scan('place_preprocessed.parquet')
-GROUP BY x, y
-HAVING COUNT(*) > 1000
-""")
-
-focus = con.execute("""
-    WITH user_totals AS (
-      SELECT user_id, COUNT(*) AS total_edits
-      FROM parquet_scan('place_preprocessed.parquet')
-      WHERE user_id IN (SELECT user_id FROM top_churn_users)
-      GROUP BY user_id
-    ),
-    user_hot AS (
-      SELECT p.user_id, COUNT(*) AS hot_edits
-      FROM parquet_scan('place_preprocessed.parquet') p
-      JOIN hot_pixels h ON p.x=h.x AND p.y=h.y
-      WHERE p.user_id IN (SELECT user_id FROM top_churn_users)
-      GROUP BY p.user_id
-    )
-    SELECT
-      t.user_id,
-      total_edits,
-      COALESCE(hot_edits,0) AS hot_edits,
-      COALESCE(hot_edits,0) * 1.0 / total_edits AS hot_edit_ratio
-    FROM user_totals t
-    LEFT JOIN user_hot h USING(user_id)
-    ORDER BY hot_edit_ratio DESC
-""").df()
-
-(
-    ggplot(focus, aes(x="hot_edit_ratio"))
-    + geom_histogram(bins=30)
-    + labs(title="Fraction of Edits in Top Contested Pixels",
-           x="Proportion of User's Edits in Hot Pixels",
-           y="Number of Users")
-    + theme_minimal()
-).show()
-
-'''
-
-
-
-
-#######################
-#######################
-# BUCKET THREE
-#######################
-#######################
-
-####################################################################################
-# LOW AMOUNT OF COLOR CHOICE SECTION EXPLORING IF POSSIBLE IRREGULAR ACTIVITY AREA
-####################################################################################
-
-color_counts = con.execute("""
-    WITH color_count AS (
-        SELECT
-            user_id,
-            COUNT(DISTINCT pc) AS total_colors,
-            COUNT(*) AS total_edits
-        FROM parquet_scan('place_preprocessed.parquet')
-        GROUP BY user_id
-    ),
-    low_entropy AS (
-        SELECT 
-            c.user_id,
-            c.total_colors,
-            c.total_edits,
-            (c.total_colors * 1.0) / NULLIF(c.total_edits, 0) AS color_diversity_ratio
-        FROM color_count c
-        WHERE c.total_edits > 200
-          AND c.total_colors <= 2
-    )
-    SELECT 
-        user_id,
-        total_colors,
-        total_edits,
-        color_diversity_ratio
-    FROM low_entropy
-    ORDER BY color_diversity_ratio ASC, total_edits DESC
-""").df()
-
-
-#print(color_counts.head(20))
-
-
-
-con.register("low_entropy_users", color_counts)
-
-low_entropy_pixels = con.execute("""
-SELECT x, y
-FROM parquet_scan('place_preprocessed.parquet')
-WHERE user_id IN (SELECT user_id FROM low_entropy_users)
-""").df()
-
-(
-    ggplot(low_entropy_pixels, aes(x="x", y="y"))
-    + geom_bin2d(bins=120)
-    + coord_fixed()
-    + labs(title="Pixel Locations from Low-Entropy Color Users",
-           x="X Coordinate",
-           y="Y Coordinate")
-    + theme_minimal()
-)#.show()
-
-top_5_users = color_counts.head(5)
-top5_ids = top_5_users["user_id"].tolist()
-
-con.register("top_5_users", top_5_users)
-
-user_pixels = con.execute(
-    """
-    SELECT user_id, x, y
-    FROM parquet_scan('place_preprocessed.parquet')
-    WHERE user_id IN (SELECT user_id FROM top_5_users)
-    """
-).df()
-
-(
-    ggplot(user_pixels, aes(x="x", y="y"))
-    + geom_bin2d(bins=80)
-    + coord_fixed()
-    + facet_wrap("~user_id")
-    + labs(title="Pixel Placement Patterns of Top Low-Entropy Users")
-    + theme_minimal()
-)#.show()
-
-print(color_counts.head(5).to_markdown(index=False))
-
-
-
-
 
 
 
