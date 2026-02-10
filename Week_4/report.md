@@ -4,7 +4,7 @@
 
 #### Human description:
 
-Certain regions of the canvas experienced extreme pixel placement in a specific pixel, with some individual pixels being repainted over 90,000 times. This level of sustained, repetitive activity far exceeds normal human interaction patterns and suggests the use of automated tools or scripts to defend some type of territory.
+Certain regions of the canvas experienced extreme pixel placement in a specific pixel, with some individual pixels being repainted over 90,000 times. This level of sustained, repetitive activity far exceeds normal human interaction patterns and suggests the use of automated tools or scripts to defend some type of territory. *(See Bucket_1.py for script)*
 
 Evidence found that the irregular activity could exist:
 
@@ -69,7 +69,7 @@ all form a consistent profile of automated or tool-assisted territorial defense 
 
 #### Human description:
 
-A subset of highly active accounts exhibited extremely low color diversity, placing hundreds of pixels while using only one or two colors. Unlike typical participants who switch colors while contributing to artwork, these accounts repeatedly placed the same color in highly localized areas. This pattern suggests task-focused, repetitive behavior consistent with automated scripts or tool-assisted placement rather than normal human artistic participation.
+A subset of highly active accounts exhibited extremely low color diversity, placing hundreds of pixels while using only one or two colors. Unlike typical participants who switch colors while contributing to artwork, these accounts repeatedly placed the same color in highly localized areas. This pattern suggests task-focused, repetitive behavior consistent with automated scripts or tool-assisted placement rather than normal human artistic participation. *(See Bucket_2.py for script)*
 
 Evidence found that the irregular activity could exist:
 
@@ -116,7 +116,7 @@ form a consistent profile of task-specialized, repetitive behavior. These signal
 
 #### Human description:
 
-During several short time windows, the platform experienced unusually large surges of first-time participants placing their very first pixel. These spikes represent moments where thousands of new accounts became active almost simultaneously. While high activity is expected during major events, the scale and sharpness of these bursts looked like it could be organized influxes of users rather than gradual organic growth. Leading to the hypothesis that this could be due to mass amount of bot users being made to take over a canvas.
+During several short time windows, the platform experienced unusually large surges of first-time participants placing their very first pixel. These spikes represent moments where thousands of new accounts became active almost simultaneously. While high activity is expected during major events, the scale and sharpness of these bursts looked like it could be organized influxes of users rather than gradual organic growth. Leading to the hypothesis that this could be due to mass amount of bot users being made to take over a canvas. *(See Bucket_3.py for script)*
 
 
 ### Evidence found that the irregular activity could exist:
