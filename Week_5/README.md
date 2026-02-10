@@ -128,6 +128,7 @@ To understand what the model learned, I used **SHAP** values. The first image sh
 ### SHAP feature importance
 
 ![SHAP Importance](images/shap_importance_direction.png)
+
 **[View Interactive SHAP Plot](https://OwenLoughery.github.io/CSC-369-Week-1-Assignment/shap_importance.html)**
 
 ### Direction of effects
