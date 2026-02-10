@@ -9,7 +9,7 @@ I trained a machine learning model to predict whether a pixel placement in r/pla
 
 The reason I chose to build this model and look into this was to build a method so that in the r/place if this event were hosted again, you could find what areas of the canvas would give you the best chance at creating an artwork on your own or just with a smaller community by using the model.
 
----
+
 
 ## Research Question
 **Can we predict whether a pixel will survive for 30 minutes, using only information available at the moment it was placed?**
@@ -17,7 +17,7 @@ The reason I chose to build this model and look into this was to build a method 
 ### Why this is interesting
 r/place looks like a chaotic and very random thing, but it’s also a system of coordinated behavior. If survival is predictable, that implies there are measurable “rules” to stable places (quiet zones, defended regions) versus conflict areas (borders, mass scale community takeovers, ongoing battles between communities).
 
----
+
 
 ## Method Overview
 
@@ -27,11 +27,11 @@ For each pixel placement event, I labeled whether it **survived 30 minutes**:
 - **1** = survived ≥ 30 minutes before being overwritten  
 - **0** = overwritten within 30 minutes  
 
-To compute this, I used `LEAD(ts)` over `(x,y)` to find the next time the same pixel was changed.
+To compute this, I used LEAD(ts) over (x,y) to find the next time the same pixel was changed.
 
----
 
-## Sampling Strategy (DuckDB)
+
+## Sampling Strategy
 The full dataset is huge and is to big to all be used in a ML algorithm, so I used **stratified sampling across time**:
 
 - I divided the event into **24 equal time bins**
@@ -39,7 +39,7 @@ The full dataset is huge and is to big to all be used in a ML algorithm, so I us
 
 This helps prevent the sample from being biased and only including times where there was a ton of placement in the r/place so the model learns across the whole time scheme and improves generalization.
 
----
+
 
 ## Feature Engineering
 All features were computed using only information from **before** the pixel placement time tp make sure there was no future peeking. Also I did not include the actual coordinates x and y in the features because I did not want the model to just memorize pixels and instead be able to predict based on what actually makes the pixel survivable or not.
@@ -71,7 +71,7 @@ I chose these features because I thought high activity and many users/colors wou
 
 I chose to make this feature since I figured the early event is more chaotic whereas later event stabilizes.
 
----
+
 
 ## Train/Test Split (80/20 split)
 To avoid data leakage and mimic real prediction, I split by time:
@@ -81,7 +81,7 @@ To avoid data leakage and mimic real prediction, I split by time:
 
 This evaluates whether the model can generalize from earlier event behavior to later event behavior.
 
----
+
 
 ## Model Choice
 I used a **Random Forest classifier** because:
@@ -92,7 +92,7 @@ I used a **Random Forest classifier** because:
 
 I used **class_weight = "balanced"** because survival is less common than overwriting as I found in my training data set there was roughly 75% of the pixels not having survived while only 25% had survived so this was an unbalanced data set.
 
----
+
 
 ## Results
 
@@ -119,15 +119,17 @@ Overwritten pixels tend to occur in highly active, contested areas that leave st
 
 Although this may make it seem like the model is not useful for finding places to create artwork in the r/place, it still is as it gives really good insight into what places your work will definitely be overwritten (places of conflict and high activity) and you can still see the probabilities that a pixel survives for 30 minutes which we will see in the graph soon which help a ton with finding safe places in the r/place.
 
----
+
 
 ## Interpretation with SHAP
 
-To understand what the model learned, I used **SHAP** values.
+To understand what the model learned, I used **SHAP** values. The first image shows direction and second interactive one shows overall feature importance (click on link for second image to view)
 
 ### SHAP feature importance
 
-IMAGE
+![SHAP Importance](images/shap_importance_direction.png)
+
+**[View Interactive SHAP Plot](https://OwenLoughery.github.io/CSC-369-Week-1-Assignment/shap_importance.html)**
 
 ### Direction of effects
 
@@ -139,19 +141,23 @@ IMAGE
 **Key behavioral conclusion:**  
 Pixels survive when placed in regions with historical stability and low ongoing conflict, especially later in the event.
 
----
+
 
 ## Visualizations: “Safe Zones” on the Canvas
 
-I visualized predicted survival probability on the canvas:
+I visualized predicted survival probability on the canvas (click on interactive versions to zoom into certain zones and see predicted pixel survival odds:
 
 - A **scatter map** of predicted survival probability for a test-time window
 
-IMAGE
+![Survival Scatter](images/survival_scatter.png)
+
+**[View Interactive Scatter Map](https://OwenLoughery.github.io/CSC-369-Week-1-Assignment/survival_scatter.html)**
 
 - A **binned heatmap** showing average predicted survival probability by region
 
-IMAGE
+![Survival Heatmap](images/survival_heatmap.png)
+
+**[View Interactive Heatmap](https://OwenLoughery.github.io/CSC-369-Week-1-Assignment/survival_heatmap.html)**
 
 Interpretation:
 
@@ -160,7 +166,7 @@ Interpretation:
 
 These maps act like a **risk map** for pixel survival.
 
----
+
 
 ## Practical Takeaway
 
