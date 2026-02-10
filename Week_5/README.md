@@ -31,7 +31,7 @@ To compute this, I used LEAD(ts) over (x,y) to find the next time the same pixel
 
 
 
-## Sampling Strategy (DuckDB)
+## Sampling Strategy
 The full dataset is huge and is to big to all be used in a ML algorithm, so I used **stratified sampling across time**:
 
 - I divided the event into **24 equal time bins**
