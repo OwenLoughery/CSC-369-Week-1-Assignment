@@ -156,10 +156,30 @@ os.makedirs("docs", exist_ok=True)
 
 
 fig_heat.write_image("images/survival_heatmap.png")
-fig_heat.write_html("docs/survival_heatmap.html")
+
 
 fig_scatter.write_image("images/survival_scatter.png")
-fig_scatter.write_html("docs/survival_scatter.html")
+
 
 fig_imp.write_image("images/shap_importance.png")
-fig_imp.write_html("docs/shap_importance.html")
+
+
+
+fig_heat.write_html(
+    "docs/survival_heatmap.html",
+    include_plotlyjs="cdn",   # OR True
+    full_html=True
+)
+
+fig_scatter.write_html(
+    "docs/survival_scatter.html",
+    include_plotlyjs="cdn",
+    full_html=True
+)
+
+fig_imp.write_html(
+    "docs/shap_importance.html",
+    include_plotlyjs="cdn",
+    full_html=True
+)
+
