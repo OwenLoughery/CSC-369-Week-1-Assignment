@@ -5,6 +5,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 import numpy as np
 import plotly.express as px
 import shap
+import kaleido
+import os
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
@@ -94,7 +96,7 @@ fig_imp = px.bar(
     x="importance",
     y="feature",
     orientation="h",
-    title="SHAP Feature Importance (mean |SHAP|, class = survived)"
+    title="SHAP Feature Importance"
 )
 fig_imp.show()
 
@@ -113,7 +115,7 @@ fig_scatter = px.scatter(
     color="survival_prob",
     color_continuous_scale="Viridis",
     opacity=0.7,
-    title="Predicted Pixel Survival Probability Map (Scatter, Test Window)",
+    title="Predicted Pixel Survival Probability Map (For Test Window of 3 hours)",
     labels={"survival_prob": "Predicted Survival Probability", "x": "Canvas X", "y": "Canvas Y"}
 )
 fig_scatter.update_yaxes(autorange="reversed")
@@ -145,3 +147,19 @@ fig_heat = px.density_heatmap(
 )
 fig_heat.update_yaxes(autorange="reversed")
 fig_heat.show()
+
+
+
+
+os.makedirs("images", exist_ok=True)
+os.makedirs("docs", exist_ok=True)
+
+
+fig_heat.write_image("images/survival_heatmap.png")
+fig_heat.write_html("docs/survival_heatmap.html")
+
+fig_scatter.write_image("images/survival_scatter.png")
+fig_scatter.write_html("docs/survival_scatter.html")
+
+fig_imp.write_image("images/shap_importance.png")
+fig_imp.write_html("docs/shap_importance.html")
