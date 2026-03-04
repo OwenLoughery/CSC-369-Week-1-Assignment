@@ -129,7 +129,7 @@ To understand what the model learned, I used **SHAP** values. The first image sh
 
 ![SHAP Importance](images/shap_importance_direction.png)
 
-**[View Interactive SHAP Plot](https://OwenLoughery.github.io/CSC-369-Week-1-Assignment/shap_importance.html)**
+**[View Interactive SHAP Plot](https://OwenLoughery.github.io/rplace_2022-canvas-analytics/shap_importance.html)**
 
 ### Direction of effects
 
@@ -151,13 +151,13 @@ I visualized predicted survival probability on the canvas (click on interactive 
 
 ![Survival Scatter](images/survival_scatter.png)
 
-**[View Interactive Scatter Map](https://OwenLoughery.github.io/CSC-369-Week-1-Assignment/survival_scatter.html)**
+**[View Interactive Scatter Map](https://OwenLoughery.github.io/rplace_2022-canvas-analytics/survival_scatter.html)**
 
 - A **binned heatmap** showing average predicted survival probability by region
 
 ![Survival Heatmap](images/survival_heatmap.png)
 
-**[View Interactive Heatmap](https://OwenLoughery.github.io/CSC-369-Week-1-Assignment/survival_heatmap.html)**
+**[View Interactive Heatmap](https://OwenLoughery.github.io/rplace_2022-canvas-analytics/survival_heatmap.html)**
 
 Interpretation:
 
