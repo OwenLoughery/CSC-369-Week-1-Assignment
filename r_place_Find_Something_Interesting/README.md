@@ -1,4 +1,4 @@
-# Week 5 Analysis — Predicting Pixel Survival
+# Analysis — Predicting Pixel Survival
 
 ## What I did
 I trained a machine learning model to predict whether a pixel placement in r/place 2022 would **survive at least 30 minutes** (not be overwritten). This model shows that pixel death is highly predictable from local conflict signals, while survival is harder and often depends on broader coordination. Using SHAP for interpretation, the strongest predictors of survival were:
