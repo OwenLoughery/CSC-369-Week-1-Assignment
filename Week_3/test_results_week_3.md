@@ -1,5 +1,8 @@
 # Week 3 Results
 
+## Original File Size:
+21 GB
+
 ## Size of pre-processed results
 1.92 GB
 
